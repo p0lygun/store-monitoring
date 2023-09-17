@@ -25,6 +25,7 @@ async def download_file(url, file_name):
 
 async def execute_download():
     tasks = []
+    (Path(__file__).parent / 'csv').mkdir(exist_ok=True)
     for file_name, file_id in files.items():
         url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm=1"
         tasks.append(download_file(url, file_name))
