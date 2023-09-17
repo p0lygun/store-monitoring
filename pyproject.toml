@@ -4,12 +4,17 @@ version = "0.1.0"
 description = ""
 authors = ["p0lygun <solankivibhakar82@gmail.com>"]
 readme = "README.md"
-packages = [{include = "stor" ,from = "."}]
+packages = [{include = "stor", from = "."}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
 fastapi = "^0.103.1"
 uvicorn = {extras = ["standard"], version = "^0.23.2"}
+aiohttp = "^3.8.5"
+loguru = "^0.7.2"
+
+[tool.poetry.scripts]
+stor = "stor.__main__:app"
 
 
 [build-system]
