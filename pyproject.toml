@@ -12,6 +12,7 @@ fastapi = "^0.103.1"
 uvicorn = {extras = ["standard"], version = "^0.23.2"}
 aiohttp = "^3.8.5"
 loguru = "^0.7.2"
+psycopg2 = "^2.9.7"
 
 [tool.poetry.scripts]
 stor = "stor.__main__:app"
