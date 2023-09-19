@@ -8,7 +8,6 @@ from .data.get_data import get_csv_files
 from .db import create_connection
 
 
-
 def app():
     logger.info("Starting stor")
     logger.debug("Getting csv files")

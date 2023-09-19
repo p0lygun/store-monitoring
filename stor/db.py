@@ -12,6 +12,7 @@ DB_CONFIG = {
 }
 logger.debug(f"DB_CONFIG: {DB_CONFIG}")
 
+
 def create_connection():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
