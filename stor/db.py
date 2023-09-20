@@ -79,12 +79,55 @@ def init_store_status_table(conn: 'connection') -> bool:
     return True
 
 
+def init_time_zone_table(conn: 'connection') -> bool:
+    """Create Table for time zone"""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS time_zone (
+                store_id BIGINT PRIMARY KEY not null,
+                timezone_str VARCHAR(255) not null
+            );
+            """
+        )
+        conn.commit()
+        logger.debug("Created time_zone table")
+    return True
+
+
+def init_menu_hours_table(conn: 'connection') -> bool:
+    """Create Table for menu hours"""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS menu_hours (
+                store_id BIGINT not null,
+                day_of_week SMALLINT not null,
+                start_time_local TIME not null,
+                end_time_local TIME not null,
+                PRIMARY KEY (store_id, day_of_week)
+            );
+            """
+        )
+        conn.commit()
+        logger.debug("Created menu_hours table")
+    return True
+
+
 def init_db(conn: 'connection') -> bool:
     """Create Tables"""
 
     # create table for store status
     if not init_store_status_table(conn):
         logger.error("Unable to initialize store_status table")
+        return False
+
+    if not init_time_zone_table(conn):
+        logger.error("Unable to initialize time_zone table")
+        return False
+
+    if not init_menu_hours_table(conn):
+        logger.error("Unable to initialize menu_hours table")
         return False
 
     return True
