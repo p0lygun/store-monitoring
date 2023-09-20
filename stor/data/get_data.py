@@ -32,6 +32,14 @@ async def execute_download():
     await asyncio.gather(*tasks)
 
 
+def check_csv_exists() -> tuple[bool, str]:
+    for file_name in files.keys():
+        file_path = Path(__file__).parent / 'csv' / f'{file_name}.csv'
+        if not file_path.exists():
+            return False, f"{file_name}.csv does not exist"
+    return True, "All csv files exist"
+
+
 def get_csv_files():
     asyncio.run(execute_download())
 
