@@ -1,4 +1,6 @@
 import os
+import pathlib
+
 import psycopg2
 from loguru import logger
 from typing import TYPE_CHECKING
@@ -16,6 +18,18 @@ DB_CONFIG = {
     'dbname': os.getenv('DB_DATABASE'),
 }
 logger.debug(f"DB_CONFIG: {DB_CONFIG}")
+
+
+def is_table_empty(cur: 'cursor', table_name: str) -> bool:
+    cur.execute(
+        """
+        SELECT exists(
+        select * from information_schema.tables where table_name=%s
+        )
+        """,
+        (table_name,)
+    )
+    return not cur.fetchone()[0]
 
 
 def create_connection():
@@ -68,6 +82,22 @@ def init_db(conn: 'connection') -> bool:
     return True
 
 
+def populate_store_status(conn: 'connection', sql_string: str, file: pathlib.Path):
+    with conn.cursor() as cur:
+        if os.getenv('DEBUG', False) and not is_table_empty(cur, 'store_status'):
+            logger.debug("Skipping populating of store_status table")
+            return
+
+        logger.info("Populating store_status table")
+        with open(file, 'r') as f:
+            cur.copy_expert(
+                sql=sql_string.format(main_table='store_status'),
+                file=f
+            )
+        conn.commit()
+        logger.debug("Populated store_status table")
+
+
 def populate_db(conn: 'connection'):
     """Populate Tables"""
     SQL_STRING = """
@@ -88,12 +118,4 @@ def populate_db(conn: 'connection'):
 
     cur: 'cursor'
     # Load store_status
-    with conn.cursor() as cur:
-        logger.info("Populating store_status table")
-        with open(CSV_DIR / 'store_status_clean.csv', 'r') as f:
-            cur.copy_expert(
-                sql=SQL_STRING.format(main_table='store_status'),
-                file=f
-            )
-        conn.commit()
-        logger.debug("Populated store_status table")
+    populate_store_status(conn, SQL_STRING, CSV_DIR / 'store_status.csv')
