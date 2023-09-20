@@ -43,10 +43,8 @@ def create_connection():
         raise e
 
 
-def init_db(conn: 'connection') -> bool:
-    """Create Tables"""
-
-    # create table for store status
+def init_store_status_table(conn: 'connection') -> bool:
+    """Create Table for store status"""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -78,6 +76,16 @@ def init_db(conn: 'connection') -> bool:
         )
         conn.commit()
         logger.debug("Created store_status table")
+    return True
+
+
+def init_db(conn: 'connection') -> bool:
+    """Create Tables"""
+
+    # create table for store status
+    if not init_store_status_table(conn):
+        logger.error("Unable to initialize store_status table")
+        return False
 
     return True
 
