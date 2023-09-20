@@ -101,7 +101,6 @@ def init_menu_hours_table(conn: 'connection') -> bool:
                 day_of_week SMALLINT not null,
                 start_time_local TIME not null,
                 end_time_local TIME not null,
-                tz_id varchar(255) DEFAULT 'America/Chicago' REFERENCES time_zone(store_id) ,
                 PRIMARY KEY (store_id, day_of_week)
             );
             """
@@ -123,9 +122,9 @@ def init_db(conn: 'connection') -> bool:
         logger.error("Unable to initialize time_zone table")
         return False
 
-    # if not init_menu_hours_table(conn):
-    #     logger.error("Unable to initialize menu_hours table")
-    #     return False
+    if not init_menu_hours_table(conn):
+        logger.error("Unable to initialize menu_hours table")
+        return False
 
     return True
 
@@ -163,6 +162,23 @@ def populate_time_zone_table(conn: 'connection', sql_string: str, file: pathlib.
         logger.debug("Populated time_zone table")
 
 
+def populate_menu_hours_table(conn: 'connection', sql_string: str, file: pathlib.Path):
+    """Populates menu_hours table"""
+    with conn.cursor() as cur:
+        if os.getenv('DEBUG', False) and not is_table_empty(cur, 'menu_hours'):
+            logger.debug("Skipping populating of menu_hours table")
+            return
+
+        logger.info("Populating menu_hours table")
+        with open(file, 'r') as f:
+            cur.copy_expert(
+                sql=sql_string.format(main_table='menu_hours'),
+                file=f
+            )
+        conn.commit()
+        logger.debug("Populated menu_hours table")
+
+
 def populate_db(conn: 'connection'):
     """Populate Tables"""
     SQL_STRING = """
@@ -185,3 +201,4 @@ def populate_db(conn: 'connection'):
     # Load store_status
     populate_store_status(conn, SQL_STRING, CSV_DIR / 'store_status_clean.csv')
     populate_time_zone_table(conn, SQL_STRING, CSV_DIR / 'time_zone_info_clean.csv')
+    populate_menu_hours_table(conn, SQL_STRING, CSV_DIR / 'menu_hours_clean.csv')
