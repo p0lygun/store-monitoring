@@ -2,6 +2,7 @@ import os
 import pathlib
 
 import psycopg2
+from psycopg2 import sql
 from loguru import logger
 from typing import TYPE_CHECKING
 
@@ -22,14 +23,9 @@ logger.debug(f"DB_CONFIG: {DB_CONFIG}")
 
 def is_table_empty(cur: 'cursor', table_name: str) -> bool:
     cur.execute(
-        """
-        SELECT exists(
-        select * from information_schema.tables where table_name=%s
-        )
-        """,
-        (table_name,)
+        sql.SQL("SELECT TRUE FROM {table_name} LIMIT 1").format(table_name=sql.Identifier(table_name))
     )
-    return not cur.fetchone()[0]
+    return cur.fetchone() is None
 
 
 def create_connection():
@@ -86,7 +82,7 @@ def init_time_zone_table(conn: 'connection') -> bool:
             """
             CREATE TABLE IF NOT EXISTS time_zone (
                 store_id BIGINT PRIMARY KEY not null,
-                timezone_str VARCHAR(255) not null
+                timezone_str VARCHAR(255) DEFAULT 'America/Chicago' not null
             );
             """
         )
@@ -105,6 +101,7 @@ def init_menu_hours_table(conn: 'connection') -> bool:
                 day_of_week SMALLINT not null,
                 start_time_local TIME not null,
                 end_time_local TIME not null,
+                tz_id varchar(255) DEFAULT 'America/Chicago' REFERENCES time_zone(store_id) ,
                 PRIMARY KEY (store_id, day_of_week)
             );
             """
@@ -126,9 +123,9 @@ def init_db(conn: 'connection') -> bool:
         logger.error("Unable to initialize time_zone table")
         return False
 
-    if not init_menu_hours_table(conn):
-        logger.error("Unable to initialize menu_hours table")
-        return False
+    # if not init_menu_hours_table(conn):
+    #     logger.error("Unable to initialize menu_hours table")
+    #     return False
 
     return True
 
@@ -147,6 +144,23 @@ def populate_store_status(conn: 'connection', sql_string: str, file: pathlib.Pat
             )
         conn.commit()
         logger.debug("Populated store_status table")
+
+
+def populate_time_zone_table(conn: 'connection', sql_string: str, file: pathlib.Path):
+    """Populates time_zone table"""
+    with conn.cursor() as cur:
+        if os.getenv('DEBUG', False) and not is_table_empty(cur, 'time_zone'):
+            logger.debug("Skipping populating of time_zone table")
+            return
+
+        logger.info("Populating time_zone table")
+        with open(file, 'r') as f:
+            cur.copy_expert(
+                sql=sql_string.format(main_table='time_zone'),
+                file=f
+            )
+        conn.commit()
+        logger.debug("Populated time_zone table")
 
 
 def populate_db(conn: 'connection'):
@@ -169,4 +183,5 @@ def populate_db(conn: 'connection'):
 
     cur: 'cursor'
     # Load store_status
-    populate_store_status(conn, SQL_STRING, CSV_DIR / 'store_status.csv')
+    populate_store_status(conn, SQL_STRING, CSV_DIR / 'store_status_clean.csv')
+    populate_time_zone_table(conn, SQL_STRING, CSV_DIR / 'time_zone_info_clean.csv')
