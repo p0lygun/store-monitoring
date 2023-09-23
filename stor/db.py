@@ -22,9 +22,11 @@ logger.debug(f"DB_CONFIG: {DB_CONFIG}")
 
 
 def is_table_empty(cur: 'cursor', table_name: str) -> bool:
-    cur.execute(
-        sql.SQL("SELECT TRUE FROM {table_name} LIMIT 1").format(table_name=sql.Identifier(table_name))
+    # todo: find why pycharm is being a dick and complains "OJ expected, got 'table_name'"
+    query = sql.SQL("SELECT TRUE FROM {table_name} LIMIT 1").format(
+        table_name=sql.Identifier(table_name)
     )
+    cur.execute(query)
     return cur.fetchone() is None
 
 
@@ -94,6 +96,8 @@ def init_time_zone_table(conn: 'connection') -> bool:
 def init_menu_hours_table(conn: 'connection') -> bool:
     """Create Table for menu hours"""
     with conn.cursor() as cur:
+        # todo: should I add a column for timezone?
+        #  as a foreign key? as time_zone table is populated before this table
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS menu_hours (
@@ -112,6 +116,9 @@ def init_menu_hours_table(conn: 'connection') -> bool:
 
 def init_db(conn: 'connection') -> bool:
     """Create Tables"""
+
+    # todo: add error handling and what is is bs checking for bool when the function may
+    #  not return a bool
 
     # create table for store status
     if not init_store_status_table(conn):

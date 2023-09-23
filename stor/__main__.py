@@ -1,3 +1,4 @@
+import uvicorn
 from loguru import logger
 
 if True:
@@ -23,8 +24,17 @@ def app():
         logger.error("Unable to initialize database")
         exit(1)
     populate_db(connection)
+    logger.info("Database initialized")
+    connection.close()
     logger.info("Starting Server...")
-    # todo: start server
+    uvicorn.run(
+        'stor.api.main:app',
+        host="0.0.0.0",
+        port=80,
+        reload=True,
+        reload_dirs=['/app/stor/api/']
+    )
+
     logger.info("Server started")
 
 

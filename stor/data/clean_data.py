@@ -19,7 +19,7 @@ def clean_store_status_csv():
             # order of replace matters, as 'inactive' is a substring of 'active'
             line = line.replace(
                 'inactive', '0'
-            ).replace('active', '1').replace(' UTC', '')
+            ).replace('active', '1')
             clean_file.write(line)
 
 
