@@ -2,28 +2,30 @@ import os
 import pathlib
 
 import psycopg2
-from psycopg2 import sql
+from psycopg2 import sql, extras as pg_extras
 from loguru import logger
 from typing import TYPE_CHECKING
 
-from .config import CSV_DIR
+from ..config import CSV_DIR
 
 if TYPE_CHECKING:
     from psycopg2.extensions import connection, cursor
 
+pg_extras.register_uuid()
 DB_CONFIG = {
     'user': os.getenv('DB_USERNAME'),
     'password': os.getenv('DB_PASSWORD'),
     'host': os.getenv('DB_HOST', 'localhost'),
     'port': os.getenv('DB_PORT', '5432'),
     'dbname': os.getenv('DB_DATABASE'),
+    'cursor_factory': pg_extras.DictCursor
 }
 logger.debug(f"DB_CONFIG: {DB_CONFIG}")
 
 
 def is_table_empty(cur: 'cursor', table_name: str) -> bool:
     # todo: find why pycharm is being a dick and complains "OJ expected, got 'table_name'"
-    query = sql.SQL("SELECT TRUE FROM {table_name} LIMIT 1").format(
+    query = sql.SQL('SELECT TRUE FROM {table_name} LIMIT 1').format(
         table_name=sql.Identifier(table_name)
     )
     cur.execute(query)
@@ -114,10 +116,47 @@ def init_menu_hours_table(conn: 'connection') -> bool:
     return True
 
 
+def init_cache_table(conn: 'connection') -> bool:
+    """Create Table for cache"""
+    with conn.cursor() as cur:
+        # UUID is used as a key to store the data in disk
+        # If cache exists it will be in /data/report_cache/{UUID}
+        # todo: add a job that clears tabel if cache is not in /data/report_cache
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_cache (
+                UUID uuid PRIMARY KEY not null,
+                generating BOOLEAN not null DEFAULT true,
+                start_timestamp_utc timestamptz not null,
+                end_timestamp_utc timestamptz default null
+            );
+            """
+        )
+        conn.commit()
+        logger.debug("Created cache table")
+    return True
+
+
+def init_settings_table(conn: 'connection') -> bool:
+    """Create Table for settings"""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                setting_name VARCHAR(255) PRIMARY KEY not null,
+                setting_value VARCHAR(255) not null
+            );
+            """
+        )
+        conn.commit()
+        logger.debug("Created settings table")
+    return True
+
+
 def init_db(conn: 'connection') -> bool:
     """Create Tables"""
 
-    # todo: add error handling and what is is bs checking for bool when the function may
+    # todo: add error handling and what is bs checking for bool when the function may
     #  not return a bool
 
     # create table for store status
@@ -131,6 +170,14 @@ def init_db(conn: 'connection') -> bool:
 
     if not init_menu_hours_table(conn):
         logger.error("Unable to initialize menu_hours table")
+        return False
+
+    if not init_cache_table(conn):
+        logger.error("Unable to initialize cache table")
+        return False
+
+    if not init_settings_table(conn):
+        logger.error("Unable to initialize settings table")
         return False
 
     return True
@@ -186,6 +233,35 @@ def populate_menu_hours_table(conn: 'connection', sql_string: str, file: pathlib
         logger.debug("Populated menu_hours table")
 
 
+def populate_settings_table(conn: 'connection'):
+    """Populates settings table"""
+    with conn.cursor() as cur:
+        logger.info("Populating settings table")
+        cur.execute(
+            """
+            INSERT INTO settings (setting_name, setting_value)
+            VALUES ('csv_data_changed', 'true')
+            ON CONFLICT DO NOTHING;
+            """
+        )
+        conn.commit()
+        logger.debug("Populated settings table")
+
+
+def get_settings(conn: 'connection', setting_name: str) -> dict:
+    """Returns settings as a dict"""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT setting_value
+            FROM settings
+            where setting_name = %s
+            """,
+            (setting_name,)
+        )
+        return cur.fetchone()
+
+
 def populate_db(conn: 'connection'):
     """Populate Tables"""
     SQL_STRING = """
@@ -195,9 +271,9 @@ def populate_db(conn: 'connection'):
                 SELECT * 
                 FROM {main_table}
                 WITH NO DATA;
-                
+
                 COPY tmp_table from STDIN DELIMITER ',' CSV HEADER;
-                
+
                 INSERT INTO {main_table}
                 SELECT *
                 FROM tmp_table
@@ -206,6 +282,19 @@ def populate_db(conn: 'connection'):
 
     cur: 'cursor'
     # Load store_status
-    populate_store_status(conn, SQL_STRING, CSV_DIR / 'store_status_clean.csv')
-    populate_time_zone_table(conn, SQL_STRING, CSV_DIR / 'time_zone_info_clean.csv')
-    populate_menu_hours_table(conn, SQL_STRING, CSV_DIR / 'menu_hours_clean.csv')
+    populate_settings_table(conn)
+    if get_settings(conn, 'csv_data_changed') == ['true']:
+        logger.info("Populating data tables")
+        populate_store_status(conn, SQL_STRING, CSV_DIR / 'store_status_clean.csv')
+        populate_time_zone_table(conn, SQL_STRING, CSV_DIR / 'time_zone_info_clean.csv')
+        populate_menu_hours_table(conn, SQL_STRING, CSV_DIR / 'menu_hours_clean.csv')
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE settings
+                SET setting_value = 'false'
+                WHERE setting_name = 'csv_data_changed';
+                """
+            )
+            conn.commit()
+        logger.info("Populated data tables")

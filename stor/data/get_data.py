@@ -10,10 +10,10 @@ files = {
 }
 
 
-async def download_file(url, file_name):
+async def download_file(url, file_name, overwrite: bool = False):
     async with aiohttp.ClientSession() as session:
         file_path = Path(__file__).parent / 'csv' / f'{file_name}.csv'
-        if file_path.exists():
+        if not overwrite and file_path.exists():
             logger.debug(f"{file_name}.csv already exists")
             return
         response = await session.get(url)
@@ -23,12 +23,12 @@ async def download_file(url, file_name):
         logger.info(f"Downloaded {file_name}.csv")
 
 
-async def execute_download():
+async def execute_download(overwrite: bool = False):
     tasks = []
     (Path(__file__).parent / 'csv').mkdir(exist_ok=True)
     for file_name, file_id in files.items():
         url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm=1"
-        tasks.append(download_file(url, file_name))
+        tasks.append(download_file(url, file_name, overwrite=overwrite))
     await asyncio.gather(*tasks)
 
 
@@ -40,8 +40,8 @@ def check_csv_exists() -> tuple[bool, str]:
     return True, "All csv files exist"
 
 
-def get_csv_files():
-    asyncio.run(execute_download())
+def get_csv_files(overwrite: bool = False):
+    asyncio.run(execute_download(overwrite=overwrite))
 
 
 if __name__ == '__main__':
