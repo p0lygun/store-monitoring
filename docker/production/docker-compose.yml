@@ -1,0 +1,43 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    command: postgres -c shared_preload_libraries=timescaledb
+    expose:
+      - "5432"
+    volumes:
+      - store_monitoring_tsdb:/var/lib/postgresql/data
+    environment:
+      - PGDATA=/var/lib/postgresql/data/timescaledb
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: "10s"
+      timeout: "5s"
+      retries: 5
+      start_period: "10s"
+
+  stor:
+    build:
+        context: ../../
+        dockerfile: docker/dockerfile
+        target: local
+    volumes:
+      - ../../stor:/app/stor
+    env_file:
+      - ../../.env
+    environment:
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DEBUG=false
+    ports:
+      - "1228:80"
+    command: python -m stor
+
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+volumes:
+  store_monitoring_tsdb:
