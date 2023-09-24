@@ -5,6 +5,7 @@ PROJECT_DIR = Path(__file__).parent
 CSV_DIR = PROJECT_DIR / 'data' / 'csv'
 REPORT_CACHE_DIR = PROJECT_DIR / 'data' / 'report_cache'
 DEBUG = os.environ.get('DEBUG', False) == 'True'
+GENERATING_REPORTS = False
 
 
 def ensure_project_directories_exists():

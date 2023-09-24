@@ -1,18 +1,28 @@
 import uuid
 
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.responses import FileResponse
+from fastapi.templating import Jinja2Templates
 from loguru import logger
 from fastapi_utils.tasks import repeat_every
 
 from datetime import datetime, timezone
 
-
 from ..db import create_connection, populate_db
-from ..report import generate_report_for_all_stores
-from ..config import REPORT_CACHE_DIR, DEBUG
+from ..report import generate_report_for_all_stores, generate_total_report
+from ..config import REPORT_CACHE_DIR, DEBUG, PROJECT_DIR
 from ..data.get_data import get_csv_files, check_csv_exists
+from .grapphing import get_graph_template_options_dict
 app = FastAPI()
+templates = Jinja2Templates(directory=PROJECT_DIR / "api" / "templates")
+
+
+@app.get("/")
+def index(request: Request, background_tasks: BackgroundTasks):
+
+    return templates.TemplateResponse(
+        "bokeh.html", get_graph_template_options_dict(request, background_tasks)
+    )
 
 
 @app.get("/trigger_report")
@@ -102,3 +112,6 @@ def poll_csv_data():
             populate_db(conn)
 
 
+@app.get('/test')
+def test_stuff():
+    return {'ts': generate_total_report()}

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from datetime import datetime, timedelta
 import zoneinfo
-from .config import REPORT_CACHE_DIR
+from . import config
 import csv
 
 from loguru import logger
@@ -170,7 +170,7 @@ def generate_report_for_store(
 
 
 def generate_report_for_all_stores(report_id: uuid.UUID):
-    report_file = REPORT_CACHE_DIR / f'{report_id}.csv'
+    report_file = config.REPORT_CACHE_DIR / f'{report_id}.csv'
     if report_file.exists():
         return
 
@@ -218,6 +218,51 @@ def generate_report_for_all_stores(report_id: uuid.UUID):
             )
             conn.commit()
         logger.info(f"Updated report cache for report {report_id}")
+
+
+def generate_total_report():
+    with create_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 
+                    MIN(timestamp_utc)
+                FROM 
+                    store_status
+                """
+            )
+            min_timestamp = cursor.fetchone()
+            if min_timestamp:
+                min_timestamp = min_timestamp[0]
+        all_stores = get_all_stores(conn)
+        with open(config.REPORT_CACHE_DIR / 'total_report.csv', 'w') as csv_file:
+            csv_file_writer = csv.writer(csv_file)
+            csv_file_writer.writerow([
+                'store_id', 'uptime', 'downtime'
+            ])
+            for store_id in all_stores:
+                store_hours = get_store_hours(conn, store_id)
+                timezone = get_store_timezone(conn, store_id)
+                store_status = [
+                    StatusLogRow(store_id, status, timestamp_utc, timestamp_local, timezone)
+                    for store_id, status, timestamp_utc, timestamp_local in get_store_status_log(conn, store_id, timezone)
+                ]
+                uptime, downtime = calculate_relative_report(
+                        store_status,
+                        store_hours,
+                        min_timestamp,
+                        get_max_timestamp(conn)
+                    )
+                csv_file_writer.writerow([
+                    store_id,
+                    uptime.total_seconds(),
+                    downtime.total_seconds()
+                ])
+
+    config.GENERATING_REPORTS = False
+    return {
+        'generated': True,
+    }
 
 
 def test_report_generation():
