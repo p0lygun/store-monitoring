@@ -217,6 +217,17 @@ def generate_report_for_all_stores(report_id: uuid.UUID):
                 (False, datetime.utcnow(), report_id)
             )
             conn.commit()
+
+            # set generate_new_report to false
+            cursor.execute(
+                """
+                UPDATE
+                    settings
+                SET setting_value = 'false'
+                WHERE setting_name = 'generate_new_report'
+                """,
+            )
+            conn.commit()
         logger.info(f"Updated report cache for report {report_id}")
 
 

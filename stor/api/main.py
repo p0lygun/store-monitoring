@@ -8,7 +8,7 @@ from fastapi_utils.tasks import repeat_every
 
 from datetime import datetime, timezone
 
-from ..db import create_connection, populate_db
+from ..db import create_connection, populate_db, get_settings
 from ..report import generate_report_for_all_stores, generate_total_report
 from ..config import REPORT_CACHE_DIR, DEBUG, PROJECT_DIR
 from ..data.get_data import get_csv_files, check_csv_exists
@@ -38,6 +38,19 @@ def trigger_report(background_tasks: BackgroundTasks):
             )
             if report := cur.fetchone():
                 return {"report_id": report[0]}
+
+            # check if generate_new_report if true
+            if get_settings(conn, "generate_new_report") == ['false']:
+                # return the latest report
+                cur.execute(
+                    """
+                    SELECT * FROM report_cache
+                    ORDER BY start_timestamp_utc DESC
+                    LIMIT 1;
+                    """
+                )
+                if report := cur.fetchone():
+                    return {"report_id": report[0]}
 
             report_id = uuid.uuid4()
             cur.execute(

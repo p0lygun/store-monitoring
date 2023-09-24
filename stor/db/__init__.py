@@ -245,6 +245,14 @@ def populate_settings_table(conn: 'connection'):
             """
         )
         conn.commit()
+        cur.execute(
+            """
+            INSERT INTO settings (setting_name, setting_value)
+            VALUES ('generate_new_report', 'true')
+            ON CONFLICT DO NOTHING;
+            """
+        )
+        conn.commit()
         logger.debug("Populated settings table")
 
 
