@@ -34,7 +34,7 @@ def get_graph(background_tasks: BackgroundTasks):
     uptime_min, uptime_max = 0, 0
     downtime_min, downtime_max = 0, 0
     CLAMP_MAX = 50
-    RANDOM_SECTION_SIZE = 20
+    RANDOM_SECTION_SIZE = 25
 
     with open(total_report_file, 'r') as f:
         reader = csv.reader(f)
@@ -68,7 +68,7 @@ def get_graph(background_tasks: BackgroundTasks):
     }
     p = figure(
         y_range=stores,
-        title=f"Store Status for {RANDOM_SECTION_SIZE} random stores",
+        title=f"Store Status for {RANDOM_SECTION_SIZE} random stores\nTotal recoded Uptime vs Downtime",
         toolbar_location="below",
         sizing_mode="stretch_width",
         tooltips=[("Store", "@stores"), ("Uptime", "@uptime")],
@@ -81,6 +81,7 @@ def get_graph(background_tasks: BackgroundTasks):
         height=0.1,
         color=["#18ba20"],
         source=ColumnDataSource(data=uptime),
+        legend_label="Uptime"
     )
     p.hbar_stack(
         ["downtime"],
@@ -88,6 +89,7 @@ def get_graph(background_tasks: BackgroundTasks):
         height=0.1,
         color=["#c93810"],
         source=ColumnDataSource(data=downtime),
+        legend_label="Downtime"
     )
 
     p.y_range.range_padding = 0.1
