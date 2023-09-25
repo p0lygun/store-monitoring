@@ -19,20 +19,16 @@ services:
       start_period: "10s"
 
   stor:
-    build:
-        context: ../../
-        dockerfile: docker/dockerfile
-        target: local
-    volumes:
-      - ../../stor:/app/stor
-    env_file:
-      - ../../.env
+    image: ghcr.io/p0lygun/store-monitoring/production:latest
     environment:
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
       - DB_HOST=timescaledb
       - DB_PORT=5432
-      - DEBUG=false
+    user: 0:0
     ports:
-      - "1228:80"
+      - "8016:80"
     command: python -m stor
 
     depends_on:
