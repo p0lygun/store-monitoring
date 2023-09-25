@@ -270,7 +270,7 @@ def get_settings(conn: 'connection', setting_name: str) -> dict:
         return cur.fetchone()
 
 
-def populate_db(conn: 'connection'):
+def populate_db(conn: 'connection', is_update: bool = False):
     """Populate Tables"""
     SQL_STRING = """
                 CREATE TEMP TABLE tmp_table 
@@ -305,4 +305,14 @@ def populate_db(conn: 'connection'):
                 """
             )
             conn.commit()
+            if is_update:
+                # set generate_new_report to true
+                cur.execute(
+                    """
+                    UPDATE settings
+                    SET setting_value = 'true'
+                    WHERE setting_name = 'generate_new_report';
+                    """
+                )
+                conn.commit()
         logger.info("Populated data tables")
